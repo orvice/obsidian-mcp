@@ -4,10 +4,15 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
+)
+
+var (
+	ErrNotFound = errors.New("file not found")
 )
 
 // Client represents an Obsidian REST API client
@@ -89,6 +94,10 @@ func (c *Client) GetVaultFile(path string) (*VaultFile, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
@@ -108,67 +117,17 @@ func (c *Client) GetVaultFile(path string) (*VaultFile, error) {
 	return &file, nil
 }
 
-// CreateVaultFile creates a new file in the vault
-func (c *Client) CreateVaultFile(path string, content string) error {
-	url := fmt.Sprintf("%s/vault/files", c.baseURL)
-
-	file := struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
-	}{
-		Path:    path,
-		Content: content,
-	}
-
-	body, err := json.Marshal(file)
-	if err != nil {
-		return fmt.Errorf("failed to marshal file: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
-}
-
 // UpdateVaultFile updates an existing file in the vault
 func (c *Client) UpdateVaultFile(path string, content string) error {
-	url := fmt.Sprintf("%s/vault/files/%s", c.baseURL, path)
+	url := fmt.Sprintf("%s/vault/%s", c.baseURL, path)
 
-	file := struct {
-		Content string `json:"content"`
-	}{
-		Content: content,
-	}
-
-	body, err := json.Marshal(file)
-	if err != nil {
-		return fmt.Errorf("failed to marshal file: %w", err)
-	}
-
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
+	req, err := http.NewRequest("PUT", url, bytes.NewBufferString(content))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "text/markdown")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -176,7 +135,7 @@ func (c *Client) UpdateVaultFile(path string, content string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
@@ -186,7 +145,7 @@ func (c *Client) UpdateVaultFile(path string, content string) error {
 
 // DeleteVaultFile deletes a file from the vault
 func (c *Client) DeleteVaultFile(path string) error {
-	url := fmt.Sprintf("%s/vault/files/%s", c.baseURL, path)
+	url := fmt.Sprintf("%s/vault/%s", c.baseURL, path)
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -207,33 +166,4 @@ func (c *Client) DeleteVaultFile(path string) error {
 	}
 
 	return nil
-}
-
-// GetVaultFileContent retrieves the content of a file from the vault
-func (c *Client) GetVaultFileContent(path string) (string, error) {
-	url := fmt.Sprintf("%s/vault/files/%s/content", c.baseURL, path)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	content, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	return string(content), nil
 }
