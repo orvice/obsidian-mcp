@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/orvice/obsidian-mcp/internal/prompts"
 	"github.com/orvice/obsidian-mcp/internal/tools"
 	obsidianrest "github.com/orvice/obsidian-mcp/pkg/obsidian-rest"
 )
@@ -37,14 +38,22 @@ func NewMCPServer() *server.MCPServer {
 		version,
 	)
 
-	obsidianToolServer := tools.NewObsidianToolServer(
-		obsidianrest.NewClient(os.Getenv("OBSIDIAN_BASE_URL"), os.Getenv("OBSIDIAN_API_KEY"),
-			obsidianrest.WithInsecureSkipVerify(true)),
-	)
+	// Create Obsidian client
+	client := obsidianrest.NewClient(os.Getenv("OBSIDIAN_BASE_URL"), os.Getenv("OBSIDIAN_API_KEY"),
+		obsidianrest.WithInsecureSkipVerify(true))
 
+	// Register tools
+	obsidianToolServer := tools.NewObsidianToolServer(client)
 	for _, tool := range obsidianToolServer.Tools() {
 		s.AddTool(tool.Tool, tool.Handler)
 	}
+
+	// Register prompts
+	obsidianPromptServer := prompts.NewObsidianPromptServer(client)
+	for _, prompt := range obsidianPromptServer.Prompts() {
+		s.AddPrompt(prompt.Prompt, prompt.Handler)
+	}
+
 	return s
 }
 
