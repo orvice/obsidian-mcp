@@ -9,6 +9,10 @@ A Model Context Protocol (MCP) server for Obsidian, written in Go.
 - Provides tools and prompts functionality
 - Supports both stdio and SSE server modes
 
+## Prerequisites
+
+This MCP server requires the [Obsidian Local REST API plugin](https://github.com/coddingtonbear/obsidian-local-rest-api) to be installed and enabled in Obsidian. This plugin provides a secure HTTPS interface that allows external tools to interact with your Obsidian notes through a REST API.
+
 ## Installation
 
 ### Using go install
