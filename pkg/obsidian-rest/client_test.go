@@ -1,7 +1,6 @@
 package obsidianrest
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -22,12 +21,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetVaultFile(t *testing.T) {
-
 	note, err := testClient.GetVaultFile(testPath)
 	if err != nil {
 		t.Fatalf("failed to get note path %s: %v", testPath, err)
 	}
-	fmt.Println(note)
+	t.Log(len(note.Content))
 }
 
 func TestUpdateVaultFile(t *testing.T) {

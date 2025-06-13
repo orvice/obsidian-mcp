@@ -107,8 +107,6 @@ func (c *Client) GetVaultFile(path string) (*VaultFile, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	fmt.Println("body", string(body))
-
 	var file VaultFile
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&file); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
