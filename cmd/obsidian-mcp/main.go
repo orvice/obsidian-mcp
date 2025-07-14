@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/orvice/obsidian-mcp/internal/prompts"
 	"github.com/orvice/obsidian-mcp/internal/tools"
 	obsidianrest "github.com/orvice/obsidian-mcp/pkg/obsidian-rest"
@@ -16,7 +17,6 @@ const (
 )
 
 func main() {
-
 	go func() {
 		if err := serveStdio(); err != nil {
 			fmt.Printf("Server error: %v\n", err)
@@ -31,53 +31,40 @@ func main() {
 	select {}
 }
 
-func NewMCPServer() *server.MCPServer {
-	// Create MCP server
-	s := server.NewMCPServer(
-		"ObsidianMCP",
-		version,
-	)
+func NewMCPServer() *mcp.Server {
+	// Create MCP server using official SDK
+	implementation := &mcp.Implementation{
+		Name:    "ObsidianMCP",
+		Version: version,
+	}
+
+	server := mcp.NewServer(implementation, nil)
 
 	// Create Obsidian client
-	client := obsidianrest.NewClient(os.Getenv("OBSIDIAN_BASE_URL"), os.Getenv("OBSIDIAN_API_KEY"),
-		obsidianrest.WithInsecureSkipVerify(true))
+	client := obsidianrest.NewClient(os.Getenv("OBSIDIAN_REST_URL"), os.Getenv("OBSIDIAN_API_KEY"))
 
 	// Register tools
-	obsidianToolServer := tools.NewObsidianToolServer(client)
-	for _, tool := range obsidianToolServer.Tools() {
-		s.AddTool(tool.Tool, tool.Handler)
-	}
+	tools.RegisterTools(server, client)
 
 	// Register prompts
-	obsidianPromptServer := prompts.NewObsidianPromptServer(client)
-	for _, prompt := range obsidianPromptServer.Prompts() {
-		s.AddPrompt(prompt.Prompt, prompt.Handler)
-	}
+	prompts.RegisterPrompts(server)
 
-	return s
+	return server
 }
 
 func serveStdio() error {
-	s := NewMCPServer()
-	// Start the stdio server
-	if err := server.ServeStdio(s); err != nil {
-		fmt.Printf("Server error: %v\n", err)
-	}
-	return nil
+	ctx := context.Background()
+	server := NewMCPServer()
+
+	// Create stdio transport
+	transport := mcp.NewStdioTransport()
+
+	// Run server using stdio
+	return server.Run(ctx, transport)
 }
 
 func serveSSEServer() error {
-	// Create MCP server
-	s := server.NewSSEServer(
-		NewMCPServer(),
-	)
-
 	mux := http.NewServeMux()
-	mux.HandleFunc("/sse", s.ServeHTTP)
-
-	server := &http.Server{
-		Addr:    ":8081",
-		Handler: mux,
-	}
-	return server.ListenAndServe()
+	// Add SSE endpoint here when needed
+	return http.ListenAndServe(":8000", mux)
 }
