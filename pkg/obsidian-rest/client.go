@@ -50,6 +50,11 @@ func NewClient(baseURL, apiKey string, opts ...ClientOption) *Client {
 		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: time.Second * 30,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
 		},
 	}
 
