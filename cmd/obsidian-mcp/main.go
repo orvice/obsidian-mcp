@@ -40,8 +40,15 @@ func NewMCPServer() *mcp.Server {
 
 	server := mcp.NewServer(implementation, nil)
 
+	// Get Obsidian URL from environment variables
+	// Check OBSIDIAN_REST_URL first for backward compatibility, then OBSIDIAN_BASE_URL
+	obsidianURL := os.Getenv("OBSIDIAN_REST_URL")
+	if obsidianURL == "" {
+		obsidianURL = os.Getenv("OBSIDIAN_BASE_URL")
+	}
+
 	// Create Obsidian client
-	client := obsidianrest.NewClient(os.Getenv("OBSIDIAN_REST_URL"), os.Getenv("OBSIDIAN_API_KEY"))
+	client := obsidianrest.NewClient(obsidianURL, os.Getenv("OBSIDIAN_API_KEY"))
 
 	// Register tools
 	tools.RegisterTools(server, client)
